@@ -1,34 +1,55 @@
-import pickle
-import base64
-
-def serialize_for_java(data):
-    # Serialize with pickle
-    serialized = pickle.dumps(data)
-    
-    # Encode to base64
-    encoded = base64.b64encode(serialized).decode('utf-8')
-    
-    return encoded
+import json
+import requests
 
 def main():
-    # Get input
+    # Get user input
     user_input = input("Enter data to serialize: ")
     
-    # Create a dictionary with the input
+    # Create data dictionary
     data = {
         "message": user_input,
         "type": "string"
     }
     
-    # Serialize
-    serialized_data = serialize_for_java(data)
+    # HTTP endpoint (replace with your actual Java server)
+    url = "http://localhost:8080/api/deserialize"
     
-    print("\nSerialized data (base64):")
-    print(serialized_data)
+    # Set headers
+    headers = {
+        "Content-Type": "application/json"
+    }
     
-    # Also output as hex for Java compatibility
-    print("\nSerialized data (hex):")
-    print(serialized_data.encode().hex())
+    try:
+        # Send POST request with serialized data
+        response = requests.post(url, json=data, headers=headers)
+        
+        print(f"[DCUDebug] Status Code: {response.status_code}")
+        
+        # Parse response
+        try:
+            json_response = response.json()
+        except:
+            json_response = {"raw": response.text}
+        
+        print(f"[DCUDebug] Response: {json.dumps(json_response, indent=2)}")
+        
+        # Check for expected response
+        if response.status_code == 200:
+            if json_response.get("status") == "success":
+                print("[DCUDebug] SUCCESS: Server successfully deserialized the data!")
+            else:
+                print("[DCUDebug] WARNING: Response received but status not 'success'")
+        elif response.status_code == 400:
+            print(f"[DCUDebug] ERROR: Invalid request - {json_response.get('error', 'Unknown error')}")
+        elif response.status_code == 500:
+            print(f"[DCUDebug] ERROR: Server error - {json_response.get('error', 'Internal server error')}")
+        else:
+            print(f"[DCUDebug] UNEXPECTED: Received status code {response.status_code}")
+        
+    except requests.exceptions.ConnectionError:
+        print(f"[DCUDebug] Error: Could not connect to server at {url}")
+    except Exception as e:
+        print(f"[DCUDebug] Error: {e}")
 
 if __name__ == "__main__":
     main()
