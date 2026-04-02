@@ -1,0 +1,176 @@
+#APID 2.0 API send/rec tool with auth
+#DCU 4/26
+
+import requests
+import json
+import datetime
+
+def debug(msg):
+    timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+    print(f"[DCUDebug][{timestamp}] {msg}")
+
+def get_auth():
+    debug("Configuring authentication...")
+
+    print("\nAuth Types:")
+    print("1. None")
+    print("2. Bearer Token")
+    print("3. Basic Auth")
+    print("4. API Key Header")
+    print("5. Session Cookie")
+
+    choice = input("Select auth type: ").strip()
+
+    headers = {}
+    auth = None
+
+    if choice == "2":
+        token = input("Enter Bearer Token: ").strip()
+        headers["Authorization"] = f"Bearer {token}"
+        debug("Using Bearer Token auth")
+
+    elif choice == "3":
+        username = input("Username: ").strip()
+        password = input("Password: ").strip()
+        auth = (username, password)
+        debug("Using Basic Auth")
+
+    elif choice == "4":
+        key_name = input("Header name (e.g., x-api-key): ").strip()
+        key_value = input("API key value: ").strip()
+        headers[key_name] = key_value
+        debug(f"Using API Key Header: {key_name}")
+
+    elif choice == "5":
+        cookie = input("Enter cookie (e.g., session=abc123): ").strip()
+        headers["Cookie"] = cookie
+        debug("Using Session Cookie")
+
+    else:
+        debug("No authentication selected")
+
+    return headers, auth
+
+def make_request(method, url, content_type, auth_headers, auth):
+    debug(f"Preparing request: {method} {url}")
+
+    headers = {
+        "Content-Type": content_type
+    }
+
+    headers.update(auth_headers)
+
+    data = None
+
+    if method in ["POST", "PUT", "PATCH"]:
+        raw_input_data = input("Enter request body (JSON or raw): ")
+        debug(f"Raw input: {raw_input_data}")
+
+        try:
+            data = json.loads(raw_input_data)
+            debug("Parsed JSON body")
+        except:
+            data = raw_input_data
+            debug("Using raw body")
+
+    try:
+        debug("Sending HTTP request...")
+
+        response = requests.request(
+            method=method,
+            url=url,
+            headers=headers,
+            auth=auth,
+            json=data if isinstance(data, dict) else None,
+            data=data if not isinstance(data, dict) else None,
+            timeout=10
+        )
+
+        debug(f"Response status: {response.status_code}")
+
+        try:
+            parsed = response.json()
+            debug("Response parsed as JSON")
+            print(json.dumps(parsed, indent=2))
+        except:
+            debug("Response not JSON")
+            print(response.text)
+
+        return response
+
+    except Exception as e:
+        debug(f"Request error: {e}")
+        return None
+
+def get_schema(base_url, auth_headers, auth):
+    debug("Starting schema discovery...")
+
+    schema_paths = [
+        "/openapi.json",
+        "/swagger.json",
+        "/v3/api-docs",
+        "/api-docs"
+    ]
+
+    for path in schema_paths:
+        url = base_url.rstrip("/") + path
+        debug(f"Trying schema endpoint: {url}")
+
+        try:
+            response = requests.get(url, headers=auth_headers, auth=auth, timeout=5)
+            debug(f"Schema response: {response.status_code}")
+
+            if response.status_code == 200:
+                debug(f"Schema FOUND at {url}")
+
+                try:
+                    schema = response.json()
+                    debug("Schema parsed as JSON")
+                    print(json.dumps(schema, indent=2))
+                except:
+                    debug("Schema not JSON")
+                    print(response.text)
+
+                return
+
+        except Exception as e:
+            debug(f"Schema request failed: {e}")
+
+    debug("No schema found")
+
+def main():
+    debug("=== DCU Credentialed API Tester ===")
+
+    while True:
+        debug("----- NEW SESSION -----")
+
+        base_url = input("Base URL: ").strip()
+        method = input("Method (GET, POST, PUT, DELETE): ").upper()
+        endpoint = input("Endpoint: ").strip()
+        content_type = input("Content-Type (default: application/json): ").strip()
+
+        if not content_type:
+            content_type = "application/json"
+            debug("Default Content-Type applied")
+
+        # Get auth config
+        auth_headers, auth = get_auth()
+
+        full_url = base_url.rstrip("/") + "/" + endpoint.lstrip("/")
+        debug(f"Full URL: {full_url}")
+
+        # Make request
+        make_request(method, full_url, content_type, auth_headers, auth)
+
+        # Schema discovery WITH auth
+        debug("Attempting schema discovery with credentials...")
+        get_schema(base_url, auth_headers, auth)
+
+        # Reset
+        cont = input("\nNew request? (y/n): ").lower()
+        if cont != "y":
+            debug("Exiting tool")
+            break
+
+if __name__ == "__main__":
+    main()
