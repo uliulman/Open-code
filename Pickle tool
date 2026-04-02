@@ -1,0 +1,34 @@
+import pickle
+import base64
+
+def serialize_for_java(data):
+    # Serialize with pickle
+    serialized = pickle.dumps(data)
+    
+    # Encode to base64
+    encoded = base64.b64encode(serialized).decode('utf-8')
+    
+    return encoded
+
+def main():
+    # Get input
+    user_input = input("Enter data to serialize: ")
+    
+    # Create a dictionary with the input
+    data = {
+        "message": user_input,
+        "type": "string"
+    }
+    
+    # Serialize
+    serialized_data = serialize_for_java(data)
+    
+    print("\nSerialized data (base64):")
+    print(serialized_data)
+    
+    # Also output as hex for Java compatibility
+    print("\nSerialized data (hex):")
+    print(serialized_data.encode().hex())
+
+if __name__ == "__main__":
+    main()
