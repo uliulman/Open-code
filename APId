@@ -1,0 +1,135 @@
+#API query tool
+#DCU 4/26
+
+import requests
+import json
+import datetime
+
+def debug(msg):
+    timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+    print(f"[DCUDebug][{timestamp}] {msg}")
+
+def make_request(method, url, content_type):
+    debug(f"Preparing request: {method} {url}")
+    debug(f"Content-Type: {content_type}")
+
+    headers = {
+        "Content-Type": content_type
+    }
+
+    data = None
+
+    if method in ["POST", "PUT", "PATCH"]:
+        raw_input_data = input("Enter request body (JSON or raw): ")
+        debug(f"Raw input data: {raw_input_data}")
+
+        try:
+            data = json.loads(raw_input_data)
+            debug("Parsed input as JSON")
+        except:
+            data = raw_input_data
+            debug("Using raw input (not valid JSON)")
+
+    try:
+        debug("Sending HTTP request...")
+
+        response = requests.request(
+            method=method,
+            url=url,
+            headers=headers,
+            json=data if isinstance(data, dict) else None,
+            data=data if not isinstance(data, dict) else None,
+            timeout=10
+        )
+
+        debug(f"Response status: {response.status_code}")
+
+        try:
+            parsed = response.json()
+            debug("Response parsed as JSON")
+            print(json.dumps(parsed, indent=2))
+        except:
+            debug("Response is not JSON, printing raw")
+            print(response.text)
+
+        return response
+
+    except requests.exceptions.ConnectionError:
+        debug("Connection error: Could not reach server")
+    except Exception as e:
+        debug(f"Unhandled exception: {e}")
+
+    return None
+
+def get_schema(base_url):
+    debug("Starting schema discovery phase...")
+
+    schema_paths = [
+        "/openapi.json",
+        "/swagger.json",
+        "/v3/api-docs",
+        "/api-docs"
+    ]
+
+    for path in schema_paths:
+        url = base_url.rstrip("/") + path
+        debug(f"Trying schema endpoint: {url}")
+
+        try:
+            response = requests.get(url, timeout=5)
+            debug(f"Schema response status: {response.status_code}")
+
+            if response.status_code == 200:
+                debug(f"Schema FOUND at {url}")
+
+                try:
+                    schema = response.json()
+                    debug("Parsed schema as JSON")
+                    print(json.dumps(schema, indent=2))
+                except:
+                    debug("Schema not JSON, printing raw")
+                    print(response.text)
+
+                return
+
+        except Exception as e:
+            debug(f"Schema request failed: {e}")
+
+    debug("No schema discovered.")
+
+def main():
+    debug("=== DCU API Tester Starting ===")
+
+    while True:
+        debug("----- NEW SESSION -----")
+
+        # Step 1: Get full request input FIRST
+        base_url = input("Base URL (e.g., http://localhost:8080): ").strip()
+        method = input("Method (GET, POST, PUT, DELETE): ").upper()
+        endpoint = input("Endpoint (e.g., /api/test): ").strip()
+        content_type = input("Content-Type (default: application/json): ").strip()
+
+        if not content_type:
+            content_type = "application/json"
+            debug("Defaulting Content-Type to application/json")
+
+        full_url = base_url.rstrip("/") + "/" + endpoint.lstrip("/")
+        debug(f"Constructed URL: {full_url}")
+
+        # Step 2: Make the actual API call
+        response = make_request(method, full_url, content_type)
+
+        # Step 3: AFTER call → try schema discovery
+        debug("Resetting context for schema discovery...")
+        get_schema(base_url)
+
+        # Step 4: Reset loop cleanly
+        cont = input("\nStart new request based on schema? (y/n): ").lower()
+        debug(f"User selected: {cont}")
+
+        if cont != "y":
+            debug("Exiting tool.")
+            break
+
+if __name__ == "__main__":
+    main()
