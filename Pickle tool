@@ -1,8 +1,12 @@
+#Simple Serialization Tool to build unsafe deserialization/rce POC
+#DCU 4/26
+
 import json
 import requests
 
 def main():
     # Get user input
+    #Later to add for escapes and other misc
     user_input = input("Enter data to serialize: ")
     
     # Create data dictionary
@@ -11,10 +15,11 @@ def main():
         "type": "string"
     }
     
-    # HTTP endpoint (replace with your actual Java server)
+    # HTTP endpoint const for now (Later to be user input)
     url = "http://localhost:8080/api/deserialize"
     
     # Set headers
+    # Either HC Def headers here or add func for user input
     headers = {
         "Content-Type": "application/json"
     }
