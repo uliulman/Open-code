@@ -1,0 +1,60 @@
+import os
+import json
+
+def find_npm_package(package_name, search_paths):
+    found_paths = []
+
+    for base_path in search_paths:
+        print("[DCUdebug] Searching in: %s\n" % base_path)
+
+        for root, dirs, files in os.walk(base_path):
+            if "node_modules" in root:
+                for d in dirs:
+                    if d == package_name:
+                        full_path = os.path.join(root, d)
+                        print("[DCUdebug] Match found: %s\n" % full_path)
+                        found_paths.append(full_path)
+
+                        # Check package.json for version
+                        package_json = os.path.join(full_path, "package.json")
+                        if os.path.exists(package_json):
+                            try:
+                                with open(package_json, "r") as f:
+                                    data = json.load(f)
+                                    version = data.get("version", "unknown")
+                                    print("[DCUdebug] Detected version: %s\n" % version)
+                            except Exception as e:
+                                print("[DCUdebug] Error reading package.json: %s\n" % str(e))
+                        else:
+                            print("[DCUdebug] package.json not found in: %s\n" % full_path)
+
+    return found_paths
+
+
+def main():
+    package_name = input("Enter npm package to search for: ").strip()
+
+    search_paths = [
+        "/usr/lib",
+        "/usr/local/lib",
+        "/opt",
+        "/home",
+        "/var/www"
+    ]
+
+    print("[DCUdebug] Initiating filesystem scan for npm package '%s'\n" % package_name)
+
+    results = find_npm_package(package_name, search_paths)
+
+    if not results:
+        print("[DCUdebug] Scan complete: package not found\n")
+        print("\nResult: Package NOT found")
+    else:
+        print("[DCUdebug] Scan complete: package located in %d path(s)\n" % len(results))
+        print("\nResult: Package FOUND in the following locations:")
+        for path in results:
+            print(" - %s" % path)
+
+
+if __name__ == "__main__":
+    main()
